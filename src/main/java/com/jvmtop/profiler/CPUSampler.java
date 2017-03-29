@@ -43,23 +43,23 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class CPUSampler {
     private ThreadMXBean threadMxBean_ = null;
-    private ConcurrentMap<String, MethodStats> data_ = new ConcurrentHashMap<String, MethodStats>();
+    private final ConcurrentMap<String, MethodStats> data_ = new ConcurrentHashMap<String, MethodStats>();
     private long beginCPUTime_ = 0;
-    private AtomicLong totalThreadCPUTime_ = new AtomicLong(
+    private final AtomicLong totalThreadCPUTime_ = new AtomicLong(
             0);
 
     //TODO: these exception list should be expanded to the most common 3rd-party library packages
-    private List<String> filter = Arrays
+    private final List<String> filter = Arrays
             .asList("org.eclipse.", "org.apache.", "java.", "sun.", "com.sun.", "javax.",
                     "oracle.", "com.trilead.", "org.junit.", "org.mockito.",
                     "org.hibernate.", "com.ibm.", "com.caucho.");
 
-    private ConcurrentMap<Long, Long> threadCPUTime = new ConcurrentHashMap<Long, Long>();
+    private final ConcurrentMap<Long, Long> threadCPUTime = new ConcurrentHashMap<Long, Long>();
 
-    private AtomicLong updateCount_ = new AtomicLong(
+    private final AtomicLong updateCount_ = new AtomicLong(
             0);
 
-    private VMInfo vmInfo_;
+    private final VMInfo vmInfo_;
 
 
     public CPUSampler(VMInfo vmInfo) throws Exception {
@@ -91,7 +91,7 @@ public class CPUSampler {
 
                 if (ti.getStackTrace().length > 0
                         && ti.getThreadState() == State.RUNNABLE
-                        ) {
+                ) {
                     for (StackTraceElement stElement : ti.getStackTrace()) {
                         if (isReallySleeping(stElement)) {
                             break;

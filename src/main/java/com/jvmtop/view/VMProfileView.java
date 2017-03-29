@@ -32,13 +32,12 @@ import java.util.Iterator;
  * CPU sampling-based profiler view which shows methods with top CPU usage.
  *
  * @author paru
- *
  */
 public class VMProfileView extends AbstractConsoleView {
 
-    private CPUSampler cpuSampler_;
+    private final CPUSampler cpuSampler_;
 
-    private VMInfo vmInfo_;
+    private final VMInfo vmInfo_;
 
     public VMProfileView(int vmid, Integer width) throws Exception {
         super(width);

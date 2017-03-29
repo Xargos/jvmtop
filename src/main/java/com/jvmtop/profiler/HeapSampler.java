@@ -8,8 +8,13 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,9 +30,6 @@ public class HeapSampler {
     private static final Pattern HIST_PATTERN = Pattern.compile(
             "\\s+(\\d+):{1}\\s+(\\d+)\\s+(\\d+)\\s+(.+)"
     );
-    private final HotSpotVirtualMachine hVm;
-    private Set<HeapHistogram> currentHist;
-
 
     static {
         binaryPrefixes_IEC = new TreeMap<Long, String>();
@@ -49,6 +51,27 @@ public class HeapSampler {
         jniTypeSignatureMap.put('D', "double");
     }
 
+    private final HotSpotVirtualMachine hVm;
+    private Set<HeapHistogram> currentHist;
+
+    /**
+     * initializes the heap sampler
+     *
+     * @param hVm
+     */
+    public HeapSampler(final HotSpotVirtualMachine hVm) {
+        this.hVm = hVm;
+    }
+
+    /**
+     * initializes the heap sampler
+     *
+     * @param vmid
+     */
+    public HeapSampler(int vmid) throws IOException, AttachNotSupportedException {
+        this.hVm = (HotSpotVirtualMachine) VirtualMachine.attach(String.valueOf(vmid));
+    }
+
     /**
      * Returns the human-readable form of the byte. <p/>
      * for eg, 1024 bytes would result in 1KiB. Note that, the conversion is done in <b>IEC system</b> </p>
@@ -57,8 +80,7 @@ public class HeapSampler {
      * Check https://en.wikipedia.org/wiki/Binary_prefix for more information
      * <p>
      *
-     * @param bytes
-     *         input bytes
+     * @param bytes input bytes
      * @return an array containing human readable form of memory and suffix respectively
      */
     public static String[] toHumanForm(long bytes) {
@@ -87,8 +109,7 @@ public class HeapSampler {
      * Check https://en.wikipedia.org/wiki/Binary_prefix for more information
      * <p>
      *
-     * @param bytes
-     *         input bytes
+     * @param bytes input bytes
      * @return the human readable form of the bytes in IEC system
      */
     public static String toHumanFormString(long bytes) {
@@ -99,7 +120,6 @@ public class HeapSampler {
         data.deleteCharAt(data.length() - 1);
         return data.toString();
     }
-
 
     /**
      * Returns the Java Type of the corresponding JNI type
@@ -117,31 +137,18 @@ public class HeapSampler {
             }
             if (type.equals("class")) {
                 return nativeClassType.substring(1);
-            } else { return type; }
+            } else {
+                return type;
+            }
 
         }
         return nativeClassType;
     }
 
     /**
-     * initializes the heap sampler
-     *
-     * @param hVm
-     */
-    public HeapSampler(final HotSpotVirtualMachine hVm) {this.hVm = hVm;}
-
-    /**
-     * initializes the heap sampler
-     *
-     * @param vmid
-     */
-    public HeapSampler(int vmid) throws IOException, AttachNotSupportedException {this.hVm = (HotSpotVirtualMachine) VirtualMachine.attach(String.valueOf(vmid));}
-
-    /**
      * Returns all the heap objects present in the VM sorted by their consumption
      *
-     * @param updateDeltas
-     *         include the delta information
+     * @param updateDeltas include the delta information
      * @return the set of HeapHistograms
      * @throws IOException
      */
@@ -170,10 +177,8 @@ public class HeapSampler {
     /**
      * Returns top heap objects present in the VM sorted by their consumption
      *
-     * @param limit
-     *         the top limit
-     * @param updateDeltas
-     *         include the delta information
+     * @param limit        the top limit
+     * @param updateDeltas include the delta information
      * @return the set of HeapHistograms
      * @throws IOException
      */
@@ -280,8 +285,12 @@ public class HeapSampler {
 
         @Override
         public boolean equals(final Object o) {
-            if (this == o) { return true; }
-            if (o == null || getClass() != o.getClass()) { return false; }
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
             final HeapHistogram that = (HeapHistogram) o;
             return className.equals(that.className);
         }

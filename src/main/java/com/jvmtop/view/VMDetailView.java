@@ -40,7 +40,7 @@ import java.util.TreeMap;
  */
 public class VMDetailView extends AbstractConsoleView {
 
-    private VMInfo vmInfo_;
+    private final VMInfo vmInfo_;
     private boolean sortByTotalCPU_ = false;
     private int numberOfDisplayedThreads_ = 10;
     private int threadNameDisplayWidth_ = 30;

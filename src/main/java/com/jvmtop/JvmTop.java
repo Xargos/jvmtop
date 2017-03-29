@@ -30,7 +30,12 @@ import com.sun.tools.attach.AttachNotSupportedException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
-import java.io.*;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.Date;
@@ -56,17 +61,19 @@ import java.util.logging.Logger;
 public class JvmTop {
 
     public static final String VERSION = "1.0";
-    private Double delay_ = 1.0;
-    private Boolean supportsSystemAverage_;
-    private java.lang.management.OperatingSystemMXBean localOSBean_;
-
     private final static String CLEAR_TERMINAL_ANSI_CMD = new String(
             new byte[]{
                     (byte) 0x1b, (byte) 0x5b, (byte) 0x32, (byte) 0x4a, (byte) 0x1b,
                     (byte) 0x5b, (byte) 0x48});
-
-    private int maxIterations_ = -1;
     private static Logger logger;
+    private Double delay_ = 1.0;
+    private Boolean supportsSystemAverage_;
+    private final java.lang.management.OperatingSystemMXBean localOSBean_;
+    private int maxIterations_ = -1;
+
+    public JvmTop() {
+        localOSBean_ = ManagementFactory.getOperatingSystemMXBean();
+    }
 
     private static OptionParser createOptionParser() {
         OptionParser parser = new OptionParser();
@@ -121,7 +128,7 @@ public class JvmTop {
         if (a.has("help")) {
             System.out.println("jvmtop - java monitoring for the command-line");
             System.out.println("Usage: jvmtop.sh [options...] [PID]");
-            System.out.println("");
+            System.out.println();
             parser.printHelpOn(System.out);
             System.exit(0);
         }
@@ -218,9 +225,9 @@ public class JvmTop {
 
     private static void handleNonViewArgs(final OptionSet options, Integer pid) {
         if (pid == null) {
-            System.err.println("");
+            System.err.println();
             System.err.println("ERROR: pid required");
-            System.err.println("");
+            System.err.println();
             System.exit(100);
         }
 
@@ -245,22 +252,14 @@ public class JvmTop {
             }
 
         } catch (IOException e) {
-            System.err.println("");
+            System.err.println();
             System.err.println("ERROR:" + e.getMessage());
-            System.err.println("");
+            System.err.println();
         } catch (AttachNotSupportedException e) {
-            System.err.println("");
+            System.err.println();
             System.err.println("ERROR: Unable to attach pid, is the vm still running? " + e.getMessage());
-            System.err.println("");
+            System.err.println();
         }
-    }
-
-    public int getMaxIterations() {
-        return maxIterations_;
-    }
-
-    public void setMaxIterations(int iterations) {
-        maxIterations_ = iterations;
     }
 
     private static void fineLogging() {
@@ -293,6 +292,14 @@ public class JvmTop {
         }
     }
 
+    public int getMaxIterations() {
+        return maxIterations_;
+    }
+
+    public void setMaxIterations(int iterations) {
+        maxIterations_ = iterations;
+    }
+
     protected void run(ConsoleView view) throws Exception {
         try {
             System.setOut(new PrintStream(new BufferedOutputStream(
@@ -314,10 +321,10 @@ public class JvmTop {
             }
         } catch (NoClassDefFoundError e) {
             e.printStackTrace(System.err);
-            System.err.println("");
+            System.err.println();
             System.err.println("ERROR: Some JDK classes cannot be found.");
             System.err.println("       Please check if the JAVA_HOME environment variable has been set to a JDK path.");
-            System.err.println("");
+            System.err.println();
         }
     }
 
@@ -335,10 +342,6 @@ public class JvmTop {
         } else {
             System.out.print(CLEAR_TERMINAL_ANSI_CMD);
         }
-    }
-
-    public JvmTop() {
-        localOSBean_ = ManagementFactory.getOperatingSystemMXBean();
     }
 
     /**

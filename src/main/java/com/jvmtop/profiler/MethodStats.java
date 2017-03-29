@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author paru
  */
 public class MethodStats implements Comparable<MethodStats> {
-    private AtomicLong hits_ = new AtomicLong(0);
+    private final AtomicLong hits_ = new AtomicLong(0);
     private String className_ = null;
     private String methodName_ = null;
 
@@ -75,13 +75,8 @@ public class MethodStats implements Comparable<MethodStats> {
             return false;
         }
         if (methodName_ == null) {
-            if (other.methodName_ != null) {
-                return false;
-            }
-        } else if (!methodName_.equals(other.methodName_)) {
-            return false;
-        }
-        return true;
+            return other.methodName_ == null;
+        } else return methodName_.equals(other.methodName_);
     }
 
     /**

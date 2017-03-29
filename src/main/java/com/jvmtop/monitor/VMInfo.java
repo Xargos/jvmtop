@@ -26,7 +26,12 @@ import com.jvmtop.openjdk.tools.ProxyClient;
 import com.sun.tools.attach.AttachNotSupportedException;
 
 import java.io.IOException;
-import java.lang.management.*;
+import java.lang.management.ClassLoadingMXBean;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
+import java.lang.management.OperatingSystemMXBean;
+import java.lang.management.RuntimeMXBean;
+import java.lang.management.ThreadMXBean;
 import java.lang.reflect.InvocationTargetException;
 import java.rmi.ConnectException;
 import java.util.Collection;
@@ -50,32 +55,8 @@ import java.util.regex.Pattern;
  */
 public class VMInfo {
 
-    /**
-     * Comparator providing ordering of VMInfo objects by the current heap usage of their monitored jvms
-     *
-     * @author paru
-     */
-    private static final class UsedHeapComparator implements Comparator<VMInfo> {
-        @Override
-        public int compare(VMInfo o1, VMInfo o2) {
-            return Long.valueOf(o1.getHeapUsed()).compareTo(
-                    o2.getHeapUsed());
-        }
-    }
-
-    /**
-     * Comparator providing ordering of VMInfo objects by the current CPU usage of their monitored jvms
-     *
-     * @author paru
-     */
-    private static final class CPULoadComparator implements Comparator<VMInfo> {
-        @Override
-        public int compare(VMInfo o1, VMInfo o2) {
-            return Double.valueOf(o2.getCpuLoad()).compareTo(
-                    o1.getCpuLoad());
-        }
-    }
-
+    public static final Comparator<VMInfo> USED_HEAP_COMPARATOR = new UsedHeapComparator();
+    public static final Comparator<VMInfo> CPU_LOAD_COMPARATOR = new CPULoadComparator();
     private ProxyClient proxyClient = null;
 
     private OperatingSystemMXBean osBean;
@@ -94,8 +75,6 @@ public class VMInfo {
     private VMInfoState state_ = VMInfoState.INIT;
     private String rawId_ = null;
     private LocalVirtualMachine localVm_;
-    public static final Comparator<VMInfo> USED_HEAP_COMPARATOR = new UsedHeapComparator();
-    public static final Comparator<VMInfo> CPU_LOAD_COMPARATOR = new CPULoadComparator();
     private long deltaUptime_;
     private long deltaCpuTime_;
     private long deltaGcTime_;
@@ -107,7 +86,6 @@ public class VMInfo {
     private String osUser_;
     private long threadCount_;
     private Map<String, String> systemProperties_;
-
     /**
      * @param lastCPUProcessTime
      * @param proxyClient
@@ -123,6 +101,9 @@ public class VMInfo {
         //this.vm = vm;
         state_ = VMInfoState.ATTACHED;
         update();
+    }
+    private VMInfo() {
+
     }
 
     /**
@@ -165,7 +146,7 @@ public class VMInfo {
      */
     private static VMInfo attachToVM(LocalVirtualMachine localvm, int vmid)
             throws AttachNotSupportedException, IOException, NoSuchMethodException,
-                   IllegalAccessException, InvocationTargetException, Exception {
+            IllegalAccessException, InvocationTargetException, Exception {
         //VirtualMachine vm = VirtualMachine.attach("" + vmid);
         try {
 
@@ -198,10 +179,6 @@ public class VMInfo {
                     "could not attach (PID=" + vmid + ")", e);
         }
         return createDeadVM(vmid, localvm);
-    }
-
-    private VMInfo() {
-
     }
 
     /**
@@ -502,6 +479,32 @@ public class VMInfo {
                 return vmVendor.charAt(0) + matcher.group(1).substring(2, 6);
             }
             return vmVer;
+        }
+    }
+
+    /**
+     * Comparator providing ordering of VMInfo objects by the current heap usage of their monitored jvms
+     *
+     * @author paru
+     */
+    private static final class UsedHeapComparator implements Comparator<VMInfo> {
+        @Override
+        public int compare(VMInfo o1, VMInfo o2) {
+            return Long.valueOf(o1.getHeapUsed()).compareTo(
+                    o2.getHeapUsed());
+        }
+    }
+
+    /**
+     * Comparator providing ordering of VMInfo objects by the current CPU usage of their monitored jvms
+     *
+     * @author paru
+     */
+    private static final class CPULoadComparator implements Comparator<VMInfo> {
+        @Override
+        public int compare(VMInfo o1, VMInfo o2) {
+            return Double.valueOf(o2.getCpuLoad()).compareTo(
+                    o1.getCpuLoad());
         }
     }
 }

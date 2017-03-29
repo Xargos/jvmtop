@@ -24,8 +24,13 @@ import com.jvmtop.monitor.VMInfo;
 import com.jvmtop.monitor.VMInfoState;
 import com.jvmtop.openjdk.tools.LocalVirtualMachine;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * "overview" view, providing the most-important metrics of all accessible jvms in a top-like manner.
@@ -34,7 +39,7 @@ import java.util.Map.Entry;
  */
 public class VMOverviewView extends AbstractConsoleView {
 
-    private List<VMInfo> vmInfoList = new ArrayList<VMInfo>();
+    private final List<VMInfo> vmInfoList = new ArrayList<VMInfo>();
     private Map<Integer, LocalVirtualMachine> vmMap = new HashMap<Integer, LocalVirtualMachine>();
 
     public VMOverviewView(Integer width) {
@@ -50,7 +55,7 @@ public class VMOverviewView extends AbstractConsoleView {
 
         for (VMInfo vmInfo : vmInfoList) {
             if (vmInfo.getState() == VMInfoState.ATTACHED
-                    ) {
+            ) {
                 printVM(vmInfo);
             } else if (vmInfo.getState() == VMInfoState.ATTACHED_UPDATE_ERROR) {
                 System.out

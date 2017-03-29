@@ -20,7 +20,14 @@
  */
 package com.jvmtop.view;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Formatter;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -31,16 +38,20 @@ import java.util.*;
  */
 public abstract class AbstractConsoleView implements ConsoleView {
     private static final int MIN_WIDTH = 80;
-    private boolean shouldExit_ = false;
     protected final int width;
+    private boolean shouldExit_ = false;
 
     /**
      *
      */
     public AbstractConsoleView(Integer width) {
         super();
-        if (width == null) { width = MIN_WIDTH; }
-        if (width < MIN_WIDTH) { width = MIN_WIDTH; }
+        if (width == null) {
+            width = MIN_WIDTH;
+        }
+        if (width < MIN_WIDTH) {
+            width = MIN_WIDTH;
+        }
         this.width = width;
     }
 

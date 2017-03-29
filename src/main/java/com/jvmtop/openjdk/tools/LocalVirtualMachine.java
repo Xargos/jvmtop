@@ -34,21 +34,27 @@ import com.sun.tools.attach.AgentLoadException;
 import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
-import sun.jvmstat.monitor.*;
+import sun.jvmstat.monitor.HostIdentifier;
+import sun.jvmstat.monitor.MonitorException;
+import sun.jvmstat.monitor.MonitoredHost;
+import sun.jvmstat.monitor.MonitoredVm;
+import sun.jvmstat.monitor.MonitoredVmUtil;
+import sun.jvmstat.monitor.VmIdentifier;
 import sun.management.ConnectorAddressLink;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 // Sun specific
 // Sun private
 
 public class LocalVirtualMachine {
-    private String address;
-    private String commandLine;
-    private String displayName;
-    private int vmid;
-    private boolean isAttachSupported;
+    private static final String LOCAL_CONNECTOR_ADDRESS_PROP = "com.sun.management.jmxremote.localConnectorAddress";
     private static boolean J9Mode = false;
 
     static {
@@ -58,9 +64,11 @@ public class LocalVirtualMachine {
         }
     }
 
-    public static boolean isJ9Mode() {
-        return J9Mode;
-    }
+    private String address;
+    private final String commandLine;
+    private final String displayName;
+    private final int vmid;
+    private final boolean isAttachSupported;
 
     public LocalVirtualMachine(int vmid, String commandLine, boolean canAttach,
                                String connectorAddress) {
@@ -69,6 +77,10 @@ public class LocalVirtualMachine {
         this.address = connectorAddress;
         this.isAttachSupported = canAttach;
         this.displayName = getDisplayName(commandLine);
+    }
+
+    public static boolean isJ9Mode() {
+        return J9Mode;
     }
 
     private static String getDisplayName(String commandLine) {
@@ -82,51 +94,6 @@ public class LocalVirtualMachine {
             }
             return displayName;
         }
-        return commandLine;
-    }
-
-    public int vmid() {
-        return vmid;
-    }
-
-    public boolean isManageable() {
-        return (address != null);
-    }
-
-    public boolean isAttachable() {
-        return isAttachSupported;
-    }
-
-    public void startManagementAgent() throws IOException {
-        if (address != null) {
-            // already started
-            return;
-        }
-
-        if (!isAttachable()) {
-            throw new IOException("This virtual machine \"" + vmid
-                    + "\" does not support dynamic attach.");
-        }
-
-        loadManagementAgent();
-        // fails to load or start the management agent
-        if (address == null) {
-            // should never reach here
-            throw new IOException("Fails to find connector address");
-        }
-    }
-
-    public String connectorAddress() {
-        // return null if not available or no JMX agent
-        return address;
-    }
-
-    public String displayName() {
-        return displayName;
-    }
-
-    @Override
-    public String toString() {
         return commandLine;
     }
 
@@ -190,8 +157,6 @@ public class LocalVirtualMachine {
             }
         }
     }
-
-    private static final String LOCAL_CONNECTOR_ADDRESS_PROP = "com.sun.management.jmxremote.localConnectorAddress";
 
     private static void getAttachableVMs(Map<Integer, LocalVirtualMachine> map,
                                          Map<Integer, LocalVirtualMachine> existingVmMap) {
@@ -266,6 +231,51 @@ public class LocalVirtualMachine {
                 address);
     }
 
+    public int vmid() {
+        return vmid;
+    }
+
+    public boolean isManageable() {
+        return (address != null);
+    }
+
+    public boolean isAttachable() {
+        return isAttachSupported;
+    }
+
+    public void startManagementAgent() throws IOException {
+        if (address != null) {
+            // already started
+            return;
+        }
+
+        if (!isAttachable()) {
+            throw new IOException("This virtual machine \"" + vmid
+                    + "\" does not support dynamic attach.");
+        }
+
+        loadManagementAgent();
+        // fails to load or start the management agent
+        if (address == null) {
+            // should never reach here
+            throw new IOException("Fails to find connector address");
+        }
+    }
+
+    public String connectorAddress() {
+        // return null if not available or no JMX agent
+        return address;
+    }
+
+    public String displayName() {
+        return displayName;
+    }
+
+    @Override
+    public String toString() {
+        return commandLine;
+    }
+
     // load the management agent into the target VM
     private void loadManagementAgent() throws IOException {
         VirtualMachine vm = null;
@@ -273,8 +283,7 @@ public class LocalVirtualMachine {
         try {
             vm = VirtualMachine.attach(name);
         } catch (AttachNotSupportedException x) {
-            IOException ioe = new IOException(x.getMessage());
-            ioe.initCause(x);
+            IOException ioe = new IOException(x.getMessage(), x);
             throw ioe;
         }
 
@@ -299,12 +308,10 @@ public class LocalVirtualMachine {
         try {
             vm.loadAgent(agent, "com.sun.management.jmxremote");
         } catch (AgentLoadException x) {
-            IOException ioe = new IOException(x.getMessage());
-            ioe.initCause(x);
+            IOException ioe = new IOException(x.getMessage(), x);
             throw ioe;
         } catch (AgentInitializationException x) {
-            IOException ioe = new IOException(x.getMessage());
-            ioe.initCause(x);
+            IOException ioe = new IOException(x.getMessage(), x);
             throw ioe;
         }
 

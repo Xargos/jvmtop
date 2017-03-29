@@ -26,14 +26,10 @@ public class VMMemProfileView extends AbstractConsoleView implements Closeable {
     /**
      * initializes this view
      *
-     * @param vmid
-     *         the PID of the vm
-     * @param width
-     *         the width to be used for printing
-     * @param deltaEnabled
-     *         enable this to display the deltas between the updates
-     * @param topObjects
-     *         the #objects to be showed (in decreasing order of usage)
+     * @param vmid         the PID of the vm
+     * @param width        the width to be used for printing
+     * @param deltaEnabled enable this to display the deltas between the updates
+     * @param topObjects   the #objects to be showed (in decreasing order of usage)
      * @throws Exception
      */
     public VMMemProfileView(int vmid, Integer width, boolean deltaEnabled, int topObjects) throws Exception {
@@ -51,12 +47,9 @@ public class VMMemProfileView extends AbstractConsoleView implements Closeable {
     /**
      * initializes this view
      *
-     * @param vmid
-     *         the PID of the vm
-     * @param width
-     *         the width to be used for printing
-     * @param deltaEnabled
-     *         enable this to display the deltas between the updates
+     * @param vmid         the PID of the vm
+     * @param width        the width to be used for printing
+     * @param deltaEnabled enable this to display the deltas between the updates
      * @throws Exception
      */
     public VMMemProfileView(int vmid, Integer width, boolean deltaEnabled) throws Exception {
@@ -100,7 +93,7 @@ public class VMMemProfileView extends AbstractConsoleView implements Closeable {
                 System.out.printf("%8s %3s / %5.2f%% %10s %12s %s\n", stats.memory, stats.memorySuffix, (stats.bytes * 1.d * 100 / vmInfo_.getHeapUsed()), "", stats.count, shortFQN(stats.className, w));
             }
         }
-        System.out.println("");
+        System.out.println();
         System.out.println("Note: Only top " + topObjects + " objects (according to their memory consumptions) are shown");
 
     }
