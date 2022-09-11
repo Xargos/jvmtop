@@ -13,3 +13,5 @@
 # Maven
 log/
 target/
+
+*.jar

@@ -34,7 +34,6 @@ import com.sun.tools.attach.AgentLoadException;
 import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
-import jdk.internal.agent.ConnectorAddressLink;
 import sun.jvmstat.monitor.HostIdentifier;
 import sun.jvmstat.monitor.MonitorException;
 import sun.jvmstat.monitor.MonitoredHost;
@@ -54,7 +53,16 @@ import java.util.Set;
 // Sun private
 
 public class LocalVirtualMachine {
-    private static final String LOCAL_CONNECTOR_ADDRESS_PROP = "com.sun.management.jmxremote.localConnectorAddress";
+    private String address;
+
+    private String commandLine;
+
+    private String displayName;
+
+    private int vmid;
+
+    private boolean isAttachSupported;
+
     private static boolean J9Mode = false;
 
     static {
@@ -64,11 +72,9 @@ public class LocalVirtualMachine {
         }
     }
 
-    private String address;
-    private final String commandLine;
-    private final String displayName;
-    private final int vmid;
-    private final boolean isAttachSupported;
+    public static boolean isJ9Mode() {
+        return J9Mode;
+    }
 
     public LocalVirtualMachine(int vmid, String commandLine, boolean canAttach,
                                String connectorAddress) {
@@ -77,10 +83,6 @@ public class LocalVirtualMachine {
         this.address = connectorAddress;
         this.isAttachSupported = canAttach;
         this.displayName = getDisplayName(commandLine);
-    }
-
-    public static boolean isJ9Mode() {
-        return J9Mode;
     }
 
     private static String getDisplayName(String commandLine) {
@@ -94,6 +96,51 @@ public class LocalVirtualMachine {
             }
             return displayName;
         }
+        return commandLine;
+    }
+
+    public int vmid() {
+        return vmid;
+    }
+
+    public boolean isManageable() {
+        return (address != null);
+    }
+
+    public boolean isAttachable() {
+        return isAttachSupported;
+    }
+
+    public void startManagementAgent() throws IOException {
+        if (address != null) {
+            // already started
+            return;
+        }
+
+        if (!isAttachable()) {
+            throw new IOException("This virtual machine \"" + vmid
+                    + "\" does not support dynamic attach.");
+        }
+
+        loadManagementAgent();
+        // fails to load or start the management agent
+        if (address == null) {
+            // should never reach here
+            throw new IOException("Fails to find connector address");
+        }
+    }
+
+    public String connectorAddress() {
+        // return null if not available or no JMX agent
+        return address;
+    }
+
+    public String displayName() {
+        return displayName;
+    }
+
+    @Override
+    public String toString() {
         return commandLine;
     }
 
@@ -119,6 +166,10 @@ public class LocalVirtualMachine {
 
     private static void getMonitoredVMs(Map<Integer, LocalVirtualMachine> map,
                                         Map<Integer, LocalVirtualMachine> existingMap) {
+        //Unsupported on J9
+        if (J9Mode) {
+            return;
+        }
         MonitoredHost host;
         Set vms;
         try {
@@ -143,7 +194,6 @@ public class LocalVirtualMachine {
                     // use the command line as the display name
                     name = MonitoredVmUtil.commandLine(mvm);
                     attachable = MonitoredVmUtil.isAttachable(mvm);
-                    address = ConnectorAddressLink.importFrom(pid);
                     mvm.detach();
                 } catch (Exception x) {
                     // ignore
@@ -153,6 +203,8 @@ public class LocalVirtualMachine {
             }
         }
     }
+
+    private static final String LOCAL_CONNECTOR_ADDRESS_PROP = "com.sun.management.jmxremote.localConnectorAddress";
 
     private static void getAttachableVMs(Map<Integer, LocalVirtualMachine> map,
                                          Map<Integer, LocalVirtualMachine> existingVmMap) {
@@ -227,51 +279,6 @@ public class LocalVirtualMachine {
                 address);
     }
 
-    public int vmid() {
-        return vmid;
-    }
-
-    public boolean isManageable() {
-        return (address != null);
-    }
-
-    public boolean isAttachable() {
-        return isAttachSupported;
-    }
-
-    public void startManagementAgent() throws IOException {
-        if (address != null) {
-            // already started
-            return;
-        }
-
-        if (!isAttachable()) {
-            throw new IOException("This virtual machine \"" + vmid
-                    + "\" does not support dynamic attach.");
-        }
-
-        loadManagementAgent();
-        // fails to load or start the management agent
-        if (address == null) {
-            // should never reach here
-            throw new IOException("Fails to find connector address");
-        }
-    }
-
-    public String connectorAddress() {
-        // return null if not available or no JMX agent
-        return address;
-    }
-
-    public String displayName() {
-        return displayName;
-    }
-
-    @Override
-    public String toString() {
-        return commandLine;
-    }
-
     // load the management agent into the target VM
     private void loadManagementAgent() throws IOException {
         VirtualMachine vm = null;
@@ -279,11 +286,17 @@ public class LocalVirtualMachine {
         try {
             vm = VirtualMachine.attach(name);
         } catch (AttachNotSupportedException x) {
-            IOException ioe = new IOException(x.getMessage(), x);
+            IOException ioe = new IOException(x.getMessage());
+            ioe.initCause(x);
             throw ioe;
         }
 
         String home = vm.getSystemProperties().getProperty("java.home");
+        String java_v = vm.getSystemProperties().getProperty("java.version");
+        int version = Integer.parseInt(java_v.substring(0, java_v.indexOf('.')));
+        if (version == 1) {
+            version = java_v.charAt(2) - '0'; // 1.8, 1.7, 1.6, etc.
+        }
 
         // Normally in ${java.home}/jre/lib/management-agent.jar but might
         // be in ${java.home}/lib in build environments.
@@ -291,7 +304,7 @@ public class LocalVirtualMachine {
         String agent = home + File.separator + "jre" + File.separator + "lib"
                 + File.separator + "management-agent.jar";
         File f = new File(agent);
-        if (!f.exists()) {
+        if (!f.exists() && version < 8) {
             agent = home + File.separator + "lib" + File.separator
                     + "management-agent.jar";
             f = new File(agent);
@@ -302,12 +315,17 @@ public class LocalVirtualMachine {
 
         agent = f.getCanonicalPath();
         try {
-            vm.loadAgent(agent, "com.sun.management.jmxremote");
+            if (version < 8)
+                vm.loadAgent(agent, "com.sun.management.jmxremote");
+            else
+                vm.startLocalManagementAgent();
         } catch (AgentLoadException x) {
-            IOException ioe = new IOException(x.getMessage(), x);
+            IOException ioe = new IOException(x.getMessage());
+            ioe.initCause(x);
             throw ioe;
         } catch (AgentInitializationException x) {
-            IOException ioe = new IOException(x.getMessage(), x);
+            IOException ioe = new IOException(x.getMessage());
+            ioe.initCause(x);
             throw ioe;
         }
 
