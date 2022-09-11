@@ -34,6 +34,7 @@ import com.sun.tools.attach.AgentLoadException;
 import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
+import jdk.internal.agent.ConnectorAddressLink;
 import sun.jvmstat.monitor.HostIdentifier;
 import sun.jvmstat.monitor.MonitorException;
 import sun.jvmstat.monitor.MonitoredHost;
@@ -49,20 +50,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-// Sun specific
-// Sun private
 
 public class LocalVirtualMachine {
-    private String address;
-
-    private String commandLine;
-
-    private String displayName;
-
-    private int vmid;
-
-    private boolean isAttachSupported;
-
+    private static final String LOCAL_CONNECTOR_ADDRESS_PROP = "com.sun.management.jmxremote.localConnectorAddress";
     private static boolean J9Mode = false;
 
     static {
@@ -71,6 +61,13 @@ public class LocalVirtualMachine {
             System.setProperty("com.ibm.tools.attach.timeout", "5000");
         }
     }
+
+    private String address;
+    private String commandLine;
+    private String displayName;
+    private int vmid;
+    private boolean isAttachSupported;
+
 
     public static boolean isJ9Mode() {
         return J9Mode;
@@ -194,6 +191,7 @@ public class LocalVirtualMachine {
                     // use the command line as the display name
                     name = MonitoredVmUtil.commandLine(mvm);
                     attachable = MonitoredVmUtil.isAttachable(mvm);
+                    address = ConnectorAddressLink.importFrom(pid);
                     mvm.detach();
                 } catch (Exception x) {
                     // ignore
@@ -203,8 +201,6 @@ public class LocalVirtualMachine {
             }
         }
     }
-
-    private static final String LOCAL_CONNECTOR_ADDRESS_PROP = "com.sun.management.jmxremote.localConnectorAddress";
 
     private static void getAttachableVMs(Map<Integer, LocalVirtualMachine> map,
                                          Map<Integer, LocalVirtualMachine> existingVmMap) {

@@ -22,6 +22,7 @@ JAVA_MODULES="--add-modules java.se
                 --add-exports=java.management/sun.management.counter.perf=ALL-UNNAMED
                 --add-exports=java.management/sun.management.counter=ALL-UNNAMED
                 --add-exports=jdk.management.agent/jdk.internal.agent=ALL-UNNAMED
+                --add-exports=jdk.attach/sun.tools.attach=ALL-UNNAMED
                 --add-opens java.rmi/sun.rmi.server=ALL-UNNAMED
                 --add-opens java.rmi/sun.rmi.transport=ALL-UNNAMED
                 --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED"

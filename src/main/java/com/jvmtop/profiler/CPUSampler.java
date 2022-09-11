@@ -49,8 +49,7 @@ public class CPUSampler {
 
     private long beginCPUTime_ = 0;
 
-    private final AtomicLong totalThreadCPUTime_ = new AtomicLong(
-            0);
+    private final AtomicLong totalThreadCPUTime_ = new AtomicLong(0);
 
 
     //TODO: these exception list should be expanded to the most common 3rd-party library packages
@@ -61,8 +60,7 @@ public class CPUSampler {
 
     private final ConcurrentMap<Long, Long> threadCPUTime = new ConcurrentHashMap<Long, Long>();
 
-    private final AtomicLong updateCount_ = new AtomicLong(
-            0);
+    private final AtomicLong updateCount_ = new AtomicLong(0);
 
     private final VMInfo vmInfo_;
 

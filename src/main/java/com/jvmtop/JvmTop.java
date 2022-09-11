@@ -27,9 +27,21 @@ import com.jvmtop.view.VMProfileView;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
+import com.jvmtop.profiler.HeapSampler;
+import com.jvmtop.view.ConsoleView;
+import com.jvmtop.view.VMDetailView;
+import com.jvmtop.view.VMMemProfileView;
+import com.jvmtop.view.VMOverviewView;
+import com.jvmtop.view.VMProfileView;
+import com.sun.tools.attach.AttachNotSupportedException;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+
 import java.io.BufferedOutputStream;
+import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.util.Arrays;
@@ -42,16 +54,16 @@ import java.util.logging.Logger;
 
 /**
  * JvmTop entry point class.
- *
+ * <p>
  * - parses program arguments
  * - selects console view
  * - prints header
  * - main "iteration loop"
- *
+ * <p>
  * TODO: refactor to split these tasks
  *
  * @author paru
- *
+ * @author tckb
  */
 public class JvmTop {
 
@@ -72,41 +84,22 @@ public class JvmTop {
 
     private static OptionParser createOptionParser() {
         OptionParser parser = new OptionParser();
-        parser.acceptsAll(Arrays.asList("help", "?", "h"),
-                "shows this help").forHelp();
-        parser
-                .accepts("once",
-                        "jvmtop will exit after first output iteration [deprecated, use -n 1 instead]");
-        parser
-                .acceptsAll(Arrays.asList("n", "iteration"),
-                        "jvmtop will exit after n output iterations").withRequiredArg()
-                .ofType(Integer.class);
-        parser
-                .acceptsAll(Arrays.asList("d", "delay"),
-                        "delay between each output iteration").withRequiredArg()
-                .ofType(Double.class);
+        parser.acceptsAll(Arrays.asList("help", "?", "h"), "shows this help").forHelp();
+        parser.accepts("once", "jvmtop will exit after first output iteration [deprecated, use -n 1 instead]");
+        parser.acceptsAll(Arrays.asList("n", "iteration"), "jvmtop will exit after n output iterations").withRequiredArg().ofType(Integer.class);
+        parser.acceptsAll(Arrays.asList("d", "delay"), "delay between each output iteration").withRequiredArg().ofType(Double.class);
         parser.accepts("profile", "start CPU profiling at the specified jvm");
+        parser.accepts("enable-deltas", "shows deltas between the updates (currently only applicable with --profile-mem)");
+        parser.accepts("profile-mem", "start memory profiling at the specified jvm").requiredIf("enable-deltas");
         parser.accepts("sysinfo", "outputs diagnostic information");
         parser.accepts("verbose", "verbose mode");
-        parser.accepts("threadlimit",
-                        "sets the number of displayed threads in detail mode")
-                .withRequiredArg().ofType(Integer.class);
-        parser
-                .accepts("disable-threadlimit", "displays all threads in detail mode");
-
-        parser
-                .acceptsAll(Arrays.asList("p", "pid"),
-                        "PID to connect to").withRequiredArg().ofType(Integer.class);
-
-        parser
-                .acceptsAll(Arrays.asList("w", "width"),
-                        "Width in columns for the console display").withRequiredArg().ofType(Integer.class);
-
-        parser
-                .accepts("threadnamewidth",
-                        "sets displayed thread name length in detail mode (defaults to 30)")
-                .withRequiredArg().ofType(Integer.class);
-
+        parser.accepts("threadlimit", "sets the number of displayed threads in detail mode").withRequiredArg().ofType(Integer.class);
+        parser.accepts("disable-threadlimit", "displays all threads in detail mode");
+        parser.acceptsAll(Arrays.asList("p", "pid"), "PID to connect to").withRequiredArg().ofType(Integer.class);
+        parser.acceptsAll(Arrays.asList("w", "width"), "Width in columns for the console display").withRequiredArg().ofType(Integer.class);
+        parser.accepts("threadnamewidth", "sets displayed thread name length in detail mode (defaults to 30)").withRequiredArg().ofType(Integer.class);
+        parser.accepts("thread-dump", "dumps the status of current running threads");
+        parser.accepts("heap-dump", "generates and dumps the heap to the specified file").withRequiredArg().ofType(String.class);
         return parser;
     }
 
@@ -126,21 +119,15 @@ public class JvmTop {
             System.exit(0);
         }
         boolean sysInfoOption = a.has("sysinfo");
-
         Integer pid = null;
-
         Integer width = null;
-
         double delay = 1.0;
-
         boolean profileMode = a.has("profile");
-
+        boolean profileMemMode = a.has("profile-mem");
+        boolean deltasEnabled = a.has("enable-deltas");
         Integer iterations = a.has("once") ? 1 : -1;
-
         Integer threadlimit = null;
-
         boolean threadLimitEnabled = true;
-
         Integer threadNameWidth = null;
 
         if (a.hasArgument("delay")) {
@@ -185,6 +172,10 @@ public class JvmTop {
             threadNameWidth = (Integer) a.valueOf("threadnamewidth");
         }
 
+        if (a.has("thread-dump") || a.has("heap-dump")) {
+            handleNonViewArgs(a, pid);
+        }
+
         if (sysInfoOption) {
             outputSystemProps();
         } else {
@@ -196,6 +187,9 @@ public class JvmTop {
             } else {
                 if (profileMode) {
                     jvmTop.run(new VMProfileView(pid, width));
+                }
+                if (profileMemMode) {
+                    jvmTop.run(new VMMemProfileView(pid, width, deltasEnabled));
                 } else {
                     VMDetailView vmDetailView = new VMDetailView(pid, width);
                     vmDetailView.setDisplayedThreadLimit(threadLimitEnabled);
@@ -210,6 +204,45 @@ public class JvmTop {
                 }
 
             }
+        }
+    }
+
+    private static void handleNonViewArgs(final OptionSet options, Integer pid) {
+        if (pid == null) {
+            System.err.println();
+            System.err.println("ERROR: pid required");
+            System.err.println();
+            System.exit(100);
+        }
+
+
+        try {
+            HeapSampler sampler = new HeapSampler(pid);
+
+            if (options.has("thread-dump")) {
+                System.out.println(sampler.threadDump());
+                System.exit(0);
+            }
+
+            if (options.has("heap-dump")) {
+                String file = (String) options.valueOf("heap-dump");
+                if (sampler.dumpHeap(new File(file))) {
+                    System.out.println("Heap dump created successfully at " + file);
+                    System.exit(0);
+                } else {
+                    System.err.println("Heap dump creation failed! ");
+                    System.exit(100);
+                }
+            }
+
+        } catch (IOException e) {
+            System.err.println();
+            System.err.println("ERROR:" + e.getMessage());
+            System.err.println();
+        } catch (AttachNotSupportedException e) {
+            System.err.println();
+            System.err.println("ERROR: Unable to attach pid, is the vm still running? " + e.getMessage());
+            System.err.println();
         }
     }
 
@@ -262,6 +295,7 @@ public class JvmTop {
                 }
                 printTopBar();
                 view.printView();
+                System.out.println("\n");
                 System.out.flush();
                 iterations++;
                 if (iterations >= maxIterations_ && maxIterations_ > 0) {
@@ -271,11 +305,9 @@ public class JvmTop {
             }
         } catch (NoClassDefFoundError e) {
             e.printStackTrace(System.err);
-
             System.err.println();
             System.err.println("ERROR: Some JDK classes cannot be found.");
-            System.err
-                    .println("       Please check if the JAVA_HOME environment variable has been set to a JDK path.");
+            System.err.println("       Please check if the JAVA_HOME environment variable has been set to a JDK path.");
             System.err.println();
         }
     }
