@@ -59,8 +59,7 @@ public class VMProfileView extends AbstractConsoleView {
 
     }
 
-    @Override
-    public void printView() throws Exception {
+    public void printView() {
         if (vmInfo_.getState() == VMInfoState.ATTACHED_UPDATE_ERROR) {
             System.out
                     .println("ERROR: Could not fetch telemetries - Process terminated?");
@@ -80,16 +79,11 @@ public class VMProfileView extends AbstractConsoleView {
         // these are the spaces taken up by the formatting, the rest is usable
         // for printing out the method name
         w = width - (1 + 6 + 3 + 9 + 3 + 2);
-        for (Iterator<MethodStats> iterator = cpuSampler_.getTop(20).iterator(); iterator
-                .hasNext(); ) {
-            MethodStats stats = iterator.next();
-            double wallRatio = (double) stats.getHits().get()
-                    / cpuSampler_.getTotal() * 100;
+        for (MethodStats stats : cpuSampler_.getTop(20)) {
+            double wallRatio = (double) stats.getHits().get() / cpuSampler_.getTotal() * 100;
             if (!Double.isNaN(wallRatio)) {
-                System.out.printf(" %6.2f%% (%9.2fs) %s()%n", wallRatio, wallRatio
-                                / 100d
-                                * cpuSampler_.getUpdateCount() * 0.1d,
-                        shortFQN(stats.getClassName(), stats.getMethodName(), w));
+                System.out.printf(" %6.2f%% (%9.2fs) %s():%d%n", wallRatio, wallRatio / 100d * cpuSampler_.getUpdateCount() * 0.1d,
+                        shortFQN(stats.getClassName(), stats.getMethodName(), w), stats.getLineNumber());
             }
         }
     }

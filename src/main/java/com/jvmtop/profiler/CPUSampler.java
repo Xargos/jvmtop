@@ -35,20 +35,15 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Experimental and very basic sampling-based CPU-Profiler.
- *
+ * <p>
  * It uses package excludes to filter common 3rd party libraries which often
  * distort application problems.
  *
  * @author paru
- *
  */
 public class CPUSampler {
-    private ThreadMXBean threadMxBean_ = null;
-
-    private final ConcurrentMap<String, MethodStats> data_ = new ConcurrentHashMap<String, MethodStats>();
-
-    private long beginCPUTime_ = 0;
-
+    private final ThreadMXBean threadMxBean_;
+    private final ConcurrentMap<String, MethodStats> data_ = new ConcurrentHashMap<>();
     private final AtomicLong totalThreadCPUTime_ = new AtomicLong(0);
 
 
@@ -56,23 +51,18 @@ public class CPUSampler {
     private final List<String> filter = Arrays
             .asList("org.eclipse.", "org.apache.", "java.", "sun.", "com.sun.", "javax.",
                     "oracle.", "com.trilead.", "org.junit.", "org.mockito.",
-                    "org.hibernate.", "com.ibm.", "com.caucho.");
+                    "org.hibernate.", "com.ibm.", "com.caucho.", "jdk.internal.reflect.", "io.netty.");
 
-    private final ConcurrentMap<Long, Long> threadCPUTime = new ConcurrentHashMap<Long, Long>();
+    private final ConcurrentMap<Long, Long> threadCPUTime = new ConcurrentHashMap<>();
 
     private final AtomicLong updateCount_ = new AtomicLong(0);
 
-    private final VMInfo vmInfo_;
-
     /**
      * @param threadMxBean
-     * @throws Exception
      */
-    public CPUSampler(VMInfo vmInfo) throws Exception {
+    public CPUSampler(VMInfo vmInfo) {
         super();
         threadMxBean_ = vmInfo.getThreadMXBean();
-        beginCPUTime_ = vmInfo.getProxyClient().getProcessCpuTime();
-        vmInfo_ = vmInfo;
     }
 
     public List<MethodStats> getTop(int limit) {
@@ -89,34 +79,25 @@ public class CPUSampler {
         boolean samplesAcquired = false;
         for (ThreadInfo ti : threadMxBean_.dumpAllThreads(false, false)) {
             long cpuTime = threadMxBean_.getThreadCpuTime(ti.getThreadId());
+            threadCPUTime.putIfAbsent(ti.getThreadId(), cpuTime);
             Long tCPUTime = threadCPUTime.get(ti.getThreadId());
-            if (tCPUTime == null) {
-                tCPUTime = 0L;
-            } else {
-                Long deltaCpuTime = (cpuTime - tCPUTime);
-
-                if (ti.getStackTrace().length > 0
-                        && ti.getThreadState() == State.RUNNABLE
-                ) {
-                    for (StackTraceElement stElement : ti.getStackTrace()) {
-                        if (isReallySleeping(stElement)) {
-                            break;
-                        }
-                        if (isFiltered(stElement)) {
-                            continue;
-                        }
-                        String key = stElement.getClassName() + "."
-                                + stElement.getMethodName();
-                        data_.putIfAbsent(key, new MethodStats(stElement.getClassName(),
-                                stElement.getMethodName()));
-                        data_.get(key).getHits().addAndGet(deltaCpuTime);
-                        totalThreadCPUTime_.addAndGet(deltaCpuTime);
-                        samplesAcquired = true;
+            long deltaCpuTime = (cpuTime - tCPUTime);
+            if (ti.getStackTrace().length > 0 && ti.getThreadState() == State.RUNNABLE) {
+                for (StackTraceElement stElement : ti.getStackTrace()) {
+                    if (isReallySleeping(stElement)) {
                         break;
                     }
+                    if (isFiltered(stElement)) {
+                        continue;
+                    }
+                    String key = stElement.getClassName() + "." + stElement.getMethodName() + ":" + stElement.getLineNumber();
+                    data_.putIfAbsent(key, new MethodStats(stElement.getClassName(), stElement.getMethodName(), stElement.getLineNumber()));
+                    data_.get(key).getHits().addAndGet(deltaCpuTime);
+                    totalThreadCPUTime_.addAndGet(deltaCpuTime);
+                    samplesAcquired = true;
+                    break;
                 }
             }
-            threadCPUTime.put(ti.getThreadId(), cpuTime);
         }
         if (samplesAcquired) {
             updateCount_.incrementAndGet();

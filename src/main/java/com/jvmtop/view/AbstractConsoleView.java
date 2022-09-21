@@ -129,7 +129,6 @@ public abstract class AbstractConsoleView implements ConsoleView {
         return sb.toString();
     }
 
-    @Override
     public boolean shouldExit() {
         return shouldExit_;
     }

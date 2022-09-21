@@ -69,7 +69,6 @@ public class VMDetailView extends AbstractConsoleView {
         sortByTotalCPU_ = sortByTotalCPU;
     }
 
-    @Override
     public void printView() throws Exception {
         vmInfo_.update();
 
